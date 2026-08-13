@@ -1,6 +1,11 @@
 "use strict";
 // Entry file into the project. 
 // This file is used to start the server and set up the necessary configurations.
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-console.log("Starting server...");
-//# sourceMappingURL=index.js.map
+const express_1 = __importDefault(require("express"));
+const app = (0, express_1.default)();
+const PORT = process.env.PORT || 3000;
+console.log("hello world");
