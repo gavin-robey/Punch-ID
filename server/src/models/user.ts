@@ -6,6 +6,7 @@ interface User {
     password: string;
     name: string;
     verified: boolean;
+    tokens: [string];
 }
 
 interface Methods {
@@ -30,7 +31,8 @@ const userSchema = new Schema<User, Model<User, any, Methods>, Methods>({
     verified: {
         type: Boolean,
         default: false
-    }
+    },
+    tokens: [String]
 }, {
     timestamps: true
 });
