@@ -9,6 +9,7 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json()); // parse incoming JSON requests
 app.use(express.urlencoded({ extended: false })); // parse incoming URL-encoded requests
+app.use(express.static('src/public'));
 
 // API routes
 app.use("/auth", authRouter);

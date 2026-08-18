@@ -3,6 +3,7 @@ import { sendErrorRes } from "src/utils/helper";
 import jwt, { JsonWebTokenError, TokenExpiredError } from "jsonwebtoken";
 import * as dotenv from 'dotenv';
 import UserModel from "src/models/user";
+import PasswordResetTokenModel from "src/models/passwordResetToken";
 
 dotenv.config();
 
@@ -53,3 +54,16 @@ export const isAuth: RequestHandler = async(req, res, next) => {
         next(err);
     }
 }
+
+export const isValidPassResetToken : RequestHandler = async(req, res, next) => { 
+    const { id, token } = req.body;
+
+    const resetPassToken = await PasswordResetTokenModel.findOne({ owner: id });
+    if(!resetPassToken) return sendErrorRes(res, 403, "Unauthorized request, invalid token");
+
+    const matched = await resetPassToken.compareToken(token);
+    if(!matched) return sendErrorRes(res, 403, "Unauthorized request, invalid token");
+
+    next();
+}
+

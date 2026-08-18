@@ -37,7 +37,17 @@ export const newUserSchema = yup.object({
     name: yup.string().required("Name is required")
 });
 
-export const verifyUserSchema = yup.object({
+export const signInSchema = yup.object({
+    email: yup
+        .string()
+        .email("Email must be a valid email address")
+        .required("Email is required"),
+    password: yup
+        .string()
+        .required("Password is required")
+});
+
+const tokenAndId = {
     id: yup.string().test({
         name: "isValidObjectId",
         message: "Invalid user ID",
@@ -46,14 +56,17 @@ export const verifyUserSchema = yup.object({
         }
     }).required("User ID is required"),
     token: yup.string().required("Verification token is required")
+}
+
+export const verifyTokenSchema = yup.object({
+    ...tokenAndId
 });
 
-export const signInSchema = yup.object({
-    email: yup
-        .string()
-        .email("Email must be a valid email address")
-        .required("Email is required"),
+export const resetPasswordSchema = yup.object({
+    ...tokenAndId,
     password: yup
         .string()
+        .min(8, "Password must be at least 8 characters long")
+        .password("Password must contain at least 8 characters, one uppercase letter, one lowercase letter, one number and one special character")
         .required("Password is required")
 });

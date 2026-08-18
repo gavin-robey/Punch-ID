@@ -12,7 +12,7 @@ interface TokenMethods {
 }
 
 
-const verificationTokenSchema = new Schema<TokenDocument, Model<TokenDocument, any, TokenMethods>, TokenMethods>({
+const passwordResetTokenSchema = new Schema<TokenDocument, Model<TokenDocument, any, TokenMethods>, TokenMethods>({
     owner : {
         type: Schema.Types.ObjectId,
         ref: "User",
@@ -24,23 +24,23 @@ const verificationTokenSchema = new Schema<TokenDocument, Model<TokenDocument, a
     },
     createdAt : {
         type: Date,
-        expires: 3600, // 1 hour 
+        expires: 1200, // 20 minutes
         default: Date.now()
     }
 }, {
     timestamps: true
 });
 
-verificationTokenSchema.pre("save", async function() {
+passwordResetTokenSchema.pre("save", async function() {
     if (this.isModified("token")) {
         const salt = await genSalt(10);
         this.token = await hash(this.token, salt);
     }
 });
 
-verificationTokenSchema.methods.compareToken = async function(token) {
+passwordResetTokenSchema.methods.compareToken = async function(token) {
     return await compare(token, this.token);
 };
 
-const AuthVerificationTokenModel = model("VerificationToken", verificationTokenSchema);
-export default AuthVerificationTokenModel;
+const PasswordResetTokenModel = model("PasswordResetToken", passwordResetTokenSchema);
+export default PasswordResetTokenModel;
