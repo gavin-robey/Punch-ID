@@ -12,8 +12,16 @@ import { sendErrorRes } from "src/utils/helper";
 import jwt from "jsonwebtoken";
 import mail from "src/utils/mail";
 import PasswordResetTokenModel from "src/models/passwordResetToken";
+import { v2 as cloudinary } from 'cloudinary';
+import { isValidObjectId } from "mongoose";
 
 dotenv.config();
+cloudinary.config({
+    cloud_name: process.env.CLOUD_NAME!,
+    api_key: process.env.CLOUD_KEY!,
+    api_secret: process.env.CLOUD_SECRET!,
+    secure: true
+});
 
 /**
  * Creates a new user account
@@ -227,6 +235,33 @@ export const updateProfile : RequestHandler = async(req, res) => {
     })
 }
 
+export const updateAvatar: RequestHandler = async(req, res) => { 
+    const { avatar } = req.files;
+
+    if(Array.isArray(avatar)) return sendErrorRes(res, 422, "Multiple files are not allowed");
+    if(!avatar.mimetype?.startsWith("image")) return sendErrorRes(res, 422, "Invalid image file type!");
+
+    const user = await UserModel.findById(req.user.id);
+    if (!user) return sendErrorRes(res, 404, "user not found");
+
+    if(user.avatar?.id){
+        await cloudinary.uploader.destroy(user.avatar.id)
+    }
+
+    // upload avatar file
+    const { secure_url: url, public_id: id } = await cloudinary.uploader.upload(
+        avatar.filepath, {
+            width: 300,
+            height: 300,
+            crop: "thumb",
+            gravity: "face"
+        });
+    user.avatar = {url, id};
+    await user.save();
+
+    res.json({ profile: {...req.user, avatar: user.avatar.url }})
+}
+
 /**
  * Returns authenticated user's profile information
  * - Requires valid authentication middleware (req.user populated)
@@ -238,6 +273,22 @@ export const updateProfile : RequestHandler = async(req, res) => {
 export const sendProfile : RequestHandler = async(req, res) => {
     res.json({
         profile: req.user
+    })
+} 
+
+export const sendPublicProfile : RequestHandler = async(req, res) => {
+    const profileId = req.params.id;
+    if(!isValidObjectId(profileId)) return sendErrorRes(res, 422, "Invalid profile id!");
+
+    const user = await UserModel.findById(profileId);
+    if(!user) return sendErrorRes(res, 404, "User not found");
+
+    return res.json({
+        profile: {
+            id: user._id,
+            name: user.name,
+            avatar: user.avatar?.url
+        }
     })
 } 
 

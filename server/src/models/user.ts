@@ -7,6 +7,10 @@ interface User {
     name: string;
     verified: boolean;
     tokens: [string];
+    avatar?: {
+        url: string, 
+        id: string 
+    }
 }
 
 interface Methods {
@@ -32,7 +36,12 @@ const userSchema = new Schema<User, Model<User, any, Methods>, Methods>({
         type: Boolean,
         default: false
     },
-    tokens: [String]
+    tokens: [String],
+    avatar: {
+        type: Object,
+        url: String,
+        id: String
+    }
 }, {
     timestamps: true
 });
