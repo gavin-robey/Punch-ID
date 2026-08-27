@@ -2,6 +2,7 @@ import express, { ErrorRequestHandler } from 'express';
 import authRouter from 'routes/auth';
 import "src/db"; 
 import * as dotenv from 'dotenv';
+import jobRouter from './routes/job';
 
 dotenv.config();
 const app = express();
@@ -13,6 +14,7 @@ app.use(express.static('src/public'));
 
 // API routes
 app.use("/auth", authRouter);
+app.use("/job", jobRouter);
 
 // error handling middleware
 const errorHandler: ErrorRequestHandler = (err, req, res, next) => { 
