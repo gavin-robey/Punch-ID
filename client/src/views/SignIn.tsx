@@ -1,11 +1,18 @@
 import Header from '../../components/Header';
+import { showErrorToast } from '../../components/ErrorToast';
 import { Input, InputField, InputSlot } from '../../components/ui/input';
 import { Text } from '../../components/ui/text';
 import { FC, useState } from 'react';
 import { KeyboardAvoidingView, TouchableOpacity, View, useColorScheme } from 'react-native';
-import { Icon, MailIcon, LockIcon } from "../../components/ui/icon"
+import { Icon, MailIcon, LockIcon } from "../../components/ui/icon";
 import { NavigationProp, useNavigation } from '@react-navigation/native';
-import { AuthStackParamList } from '../../navigator/AuthNavigator';
+import { AuthStackParamList } from '../navigator/AuthNavigator';
+import { signInSchema } from '../validation/auth';
+import { yupValidate } from '@/utils/validator';
+import { runAxiosAsync } from '@/api/runAxiosAsync';
+import { useToast } from '../../components/ui/toast';
+import { Spinner } from '../../components/ui/spinner';
+import client from '../api/client';
 
 const styles = {
     container: `flex-1 justify-center p-6 md:mx-auto md:w-full md:max-w-[520px] md:p-10 pt-15`,
@@ -16,13 +23,58 @@ const styles = {
     link: `text-blue-600`,
 };
 
+export interface SignInRes {
+    profile: {
+        id: string;
+        email: string;
+        name: string;
+        verified: boolean
+    };
+    tokens: {
+        refresh: string;
+        access: string;
+    }
+}
+
 const SignIn: FC = () => {
     const { navigate } = useNavigation<NavigationProp<AuthStackParamList>>();
     const [email, setEmail] = useState('');
+    const toast = useToast();
+    const [toastId, setToastId] = useState(0);
     const [password, setPassword] = useState('');
+    const [emailInvalid, setEmailInvalid] = useState(false);
+    const [passwordInvalid, setPasswordInvalid] = useState(false);
+    const [loading, setLoading] = useState(false);
     const colorScheme = useColorScheme();
     const isDarkMode = colorScheme === 'dark';
-    const canSignIn = Boolean(email.trim() && password.trim());
+    const canSignIn = Boolean(email.trim() && password.trim() && !loading);
+
+    const handleSubmit = async () => {
+        setLoading(true);
+        const { values, error } = await yupValidate(signInSchema, { email, password,});
+
+        if(error) {
+            if(error.toLowerCase().includes("email")|| error.toLowerCase().includes("user")) setEmailInvalid(true);
+            if(error.toLowerCase().includes("password")) setPasswordInvalid(true);
+            showErrorToast({ description: error, toast, toastId, setToastId });
+            setLoading(false);
+            return
+        }
+
+        const res = await runAxiosAsync<SignInRes>(client.post('auth/sign-in', values));
+
+        if(res.error){
+            if(res.error.toLowerCase().includes("email") || res.error.toLowerCase().includes("user")) setEmailInvalid(true);
+            if(res.error.toLowerCase().includes("password") || res.error.toLowerCase().includes("credentials")) setPasswordInvalid(true);
+            showErrorToast({ description: res.error, toast, toastId, setToastId });
+            setLoading(false);
+            return
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        if(res.data) console.log(res.data.tokens); 
+        setLoading(false);
+    };
 
     return (
         <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
@@ -30,25 +82,33 @@ const SignIn: FC = () => {
                 <Header title='Login' subtitle='Please login using your email and password' isDarkMode={isDarkMode}/>
 
                 <View className='mt-auto'>
-                    <Input isDisabled={false} isInvalid={false} isReadOnly={false}>
+                    <Input isInvalid={emailInvalid} >
                         <InputSlot>
                             <Icon as={MailIcon} className={`${isDarkMode ? 'text-gray-500' :  'text-black'}`} size='md'/>
                         </InputSlot>
-                        <InputField className={`${isDarkMode ? ' text-white' :  'text-black'}`} keyboardType="email-address" placeholder="Email" value={email} onChangeText={setEmail} />
+                        <InputField autoCapitalize="none" className={`${isDarkMode ? ' text-white' :  'text-black'}`} keyboardType="email-address" placeholder="Email" value={email} onChangeText={(value) => {
+                            setEmail(value);
+                            setEmailInvalid(false);
+                            setPasswordInvalid(false);
+                        }} />
                     </Input>
-                    <Input isDisabled={false} isInvalid={false} isReadOnly={false}>
+                    <Input isInvalid={passwordInvalid}>
                         <InputSlot>
                             <Icon as={LockIcon} className={`${isDarkMode ? ' text-gray-500' :  'text-black'}`} size='md'/>
                         </InputSlot>
-                        <InputField className={`${isDarkMode ? ' text-white' :  'text-black'}`} secureTextEntry placeholder="Password"  value={password} onChangeText={setPassword} />
+                        <InputField className={`${isDarkMode ? ' text-white' :  'text-black'}`} secureTextEntry placeholder="Password"  value={password} onChangeText={(value) => {
+                            setPassword(value);
+                            setEmailInvalid(false);
+                            setPasswordInvalid(false);
+                        }} />
                     </Input>
 
                     <TouchableOpacity
                         className={`${styles.button} ${canSignIn ? 'bg-blue-600' : 'bg-gray-700'}`}
-                        onPress={() => {}}
+                        onPress={handleSubmit}
                         disabled={!canSignIn}
                     >
-                        <Text className={styles.buttonText}>Sign In</Text>
+                        {loading ?  (<Spinner size="small" color="grey" />) : (<Text className={styles.buttonText}>Sign In</Text>)}
                     </TouchableOpacity>
                 </View>
 

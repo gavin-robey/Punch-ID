@@ -5,7 +5,7 @@ import { FC, useState } from 'react';
 import { KeyboardAvoidingView, TouchableOpacity, View, useColorScheme } from 'react-native';
 import { Icon, MailIcon } from "../../components/ui/icon"
 import { NavigationProp, useNavigation } from '@react-navigation/native';
-import { AuthStackParamList } from '../../navigator/AuthNavigator';
+import { AuthStackParamList } from '../navigator/AuthNavigator';
 
 const styles = {
     container: `flex-1 justify-center p-6 md:mx-auto md:w-full md:max-w-[520px] md:p-10 pt-15`,
