@@ -5,7 +5,7 @@ import { Toast, ToastDescription, useToast } from './ui/toast';
 
 type ToastApi = ReturnType<typeof useToast>;
 
-type ShowErrorToast = {
+export type ShowErrorToast = {
   description: string;
   toast: ToastApi;
   toastId: number;

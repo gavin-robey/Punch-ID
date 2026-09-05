@@ -1,17 +1,16 @@
-import React, { FC } from 'react';
+import { FC } from 'react';
 import {View, Text} from 'react-native';
 
 interface Props {
-
 }
 
 
-const Home : FC<Props> = (props) => {
+const Scan : FC<Props> = (props) => {
     return (
         <View className='flex-1'>
-            <Text>Home</Text>
+            <Text>Scan</Text>
         </View>
     );
 }
 
-export default Home;
+export default Scan;

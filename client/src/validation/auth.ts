@@ -51,3 +51,10 @@ export const signInSchema = yup.object({
         .string()
         .required("Password is required")
 });
+
+export const emailSchema = yup.object({
+    email: yup
+        .string()
+        .email("Email must be a valid email address")
+        .required("Email is required")
+});

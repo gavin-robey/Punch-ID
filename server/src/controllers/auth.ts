@@ -111,11 +111,11 @@ export const signIn : RequestHandler = async(req, res) => {
     const isMatch = await user.comparePassword(password);
     if(!isMatch) return sendErrorRes(res, 401, "Invalid credentials");
 
-    // Generate short-lived access token (15 minutes)
+    // Generate short-lived access token (60 minutes)
     const accessToken = jwt.sign(
         { userId: user._id }, 
         process.env.JWT_SECRET as string, 
-        { expiresIn: "15m" }
+        { expiresIn: "60m" }
     );
 
     // Generate long-lived refresh token (no expiry)

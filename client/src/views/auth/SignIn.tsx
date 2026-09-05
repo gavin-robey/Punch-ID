@@ -1,18 +1,17 @@
-import Header from '../../components/Header';
-import { showErrorToast } from '../../components/ErrorToast';
-import { Input, InputField, InputSlot } from '../../components/ui/input';
-import { Text } from '../../components/ui/text';
+import Header from '../../../components/Header';
+import { showErrorToast } from '../../../components/ErrorToast';
+import { Input, InputField, InputSlot } from '../../../components/ui/input';
+import { Text } from '../../../components/ui/text';
 import { FC, useState } from 'react';
 import { KeyboardAvoidingView, TouchableOpacity, View, useColorScheme } from 'react-native';
-import { Icon, MailIcon, LockIcon } from "../../components/ui/icon";
+import { Icon, MailIcon, LockIcon } from "../../../components/ui/icon";
 import { NavigationProp, useNavigation } from '@react-navigation/native';
-import { AuthStackParamList } from '../navigator/AuthNavigator';
-import { signInSchema } from '../validation/auth';
+import { AuthStackParamList } from '../../navigator/auth/AuthNavigator';
+import { signInSchema } from '../../validation/auth';
 import { yupValidate } from '@/utils/validator';
-import { runAxiosAsync } from '@/api/runAxiosAsync';
-import { useToast } from '../../components/ui/toast';
-import { Spinner } from '../../components/ui/spinner';
-import client from '../api/client';
+import { useToast } from '../../../components/ui/toast';
+import { Spinner } from '../../../components/ui/spinner';
+import useAuth from '@/hooks/useAuth';
 
 const styles = {
     container: `flex-1 justify-center p-6 md:mx-auto md:w-full md:max-w-[520px] md:p-10 pt-15`,
@@ -22,19 +21,6 @@ const styles = {
     footer: `mt-auto flex-row justify-between p-2 md:mt-6 md:px-0`,
     link: `text-blue-600`,
 };
-
-export interface SignInRes {
-    profile: {
-        id: string;
-        email: string;
-        name: string;
-        verified: boolean
-    };
-    tokens: {
-        refresh: string;
-        access: string;
-    }
-}
 
 const SignIn: FC = () => {
     const { navigate } = useNavigation<NavigationProp<AuthStackParamList>>();
@@ -48,9 +34,9 @@ const SignIn: FC = () => {
     const colorScheme = useColorScheme();
     const isDarkMode = colorScheme === 'dark';
     const canSignIn = Boolean(email.trim() && password.trim() && !loading);
+    const { signIn } = useAuth();
 
     const handleSubmit = async () => {
-        setLoading(true);
         const { values, error } = await yupValidate(signInSchema, { email, password,});
 
         if(error) {
@@ -61,19 +47,7 @@ const SignIn: FC = () => {
             return
         }
 
-        const res = await runAxiosAsync<SignInRes>(client.post('auth/sign-in', values));
-
-        if(res.error){
-            if(res.error.toLowerCase().includes("email") || res.error.toLowerCase().includes("user")) setEmailInvalid(true);
-            if(res.error.toLowerCase().includes("password") || res.error.toLowerCase().includes("credentials")) setPasswordInvalid(true);
-            showErrorToast({ description: res.error, toast, toastId, setToastId });
-            setLoading(false);
-            return
-        }
-
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        if(res.data) console.log(res.data.tokens); 
-        setLoading(false);
+        if(values) signIn(values, setEmailInvalid, setPasswordInvalid, showErrorToast, { toast, toastId, setToastId });
     };
 
     return (

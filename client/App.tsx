@@ -1,6 +1,6 @@
 import './global.css';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { Platform, StyleSheet, useColorScheme} from "react-native";
+import { Modal, Platform, StyleSheet, useColorScheme} from "react-native";
 import { GluestackUIProvider} from './components/ui/gluestack-ui-provider';
 import { useState } from 'react';
 import Navigator  from './src/navigator/index';

@@ -1,20 +1,20 @@
-import Header from '../../components/Header';
-import { showErrorToast } from '../../components/ErrorToast';
-import { showToast } from '../../components/Toast';
-import { Input, InputField, InputSlot } from '../../components/ui/input';
-import { Text } from '../../components/ui/text';
+import Header from '../../../components/Header';
+import { showErrorToast } from '../../../components/ErrorToast';
+import { showToast } from '../../../components/Toast';
+import { Input, InputField, InputSlot } from '../../../components/ui/input';
+import { Text } from '../../../components/ui/text';
 import { FC, useState } from 'react';
 import { KeyboardAvoidingView, TouchableOpacity, View, useColorScheme } from 'react-native';
-import { Icon, MailIcon, LockIcon, AtSignIcon } from "../../components/ui/icon";
+import { Icon, MailIcon, LockIcon, AtSignIcon } from "../../../components/ui/icon";
 import { NavigationProp, useNavigation } from '@react-navigation/native';
-import { AuthStackParamList } from '../navigator/AuthNavigator';
-import { newUserSchema } from '../validation/auth';
+import { AuthStackParamList } from '../../navigator/auth/AuthNavigator';
+import { newUserSchema } from '../../validation/auth';
 import { yupValidate } from '@/utils/validator';
 import { runAxiosAsync } from '@/api/runAxiosAsync';
-import { useToast } from '../../components/ui/toast';
-import { Spinner } from '../../components/ui/spinner';
-import client from '../api/client';
-import type { SignInRes } from './SignIn';
+import { useToast } from '../../../components/ui/toast';
+import { Spinner } from '../../../components/ui/spinner';
+import client from '../../api/client';
+import useAuth from '@/hooks/useAuth';
 
 const styles = {
     container: `flex-1 justify-center p-6 md:mx-auto md:w-full md:max-w-[520px] md:p-10 pt-15`,
@@ -45,6 +45,7 @@ const SignUp: FC = () => {
         confirmPassword.trim() &&
         !loading
     );
+    const { signIn } = useAuth();
 
     const handleSubmit = async () => {
         setLoading(true);
@@ -77,10 +78,7 @@ const SignUp: FC = () => {
         
         if(res?.data){
             showToast({ description: res.data.message, toast, toastId, setToastId });
-            const signInRes = await runAxiosAsync<SignInRes>(
-                client.post("/auth/sign-in", values)
-            )
-            console.log(signInRes);
+            if(values) signIn(values, setEmailInvalid, setPasswordInvalid, showErrorToast, { toast, toastId, setToastId });
         }
         setLoading(false);
     };

@@ -2,11 +2,12 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { RootState } from './index';
 import { createSelector } from 'reselect';
 
-interface Profile {
+export interface Profile {
     id: string;
     email: string;
     name: string;
     verified: boolean;
+    avatar?: string | undefined;
 }
 
 interface AuthState {

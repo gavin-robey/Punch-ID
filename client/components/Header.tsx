@@ -14,7 +14,7 @@ const Header : FC<Props> = (props) => {
             <Text className={`mb-2.5 text-[28px] font-bold ${props.isDarkMode ? "text-white" : "text-black"} `}>
                 {props.title}
             </Text>
-            <Text className={`mb-[150px] text-lg font-normal ${props.isDarkMode ? "text-gray-300" : "text-gray-600"} `}>
+            <Text className={`mb-37.5 text-lg font-normal ${props.isDarkMode ? "text-gray-300" : "text-gray-600"} `}>
                 {props.subtitle}
             </Text>
         </View>
