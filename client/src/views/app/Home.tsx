@@ -1,13 +1,10 @@
 import { theme } from '@/utils/theme';
-import React, { FC } from 'react';
+import { FC } from 'react';
 import {View, Text} from 'react-native';
 
-interface Props {
-
-}
 
 
-const Home : FC<Props> = (props) => {
+const Home : FC = () => {
     return (
         <View className={`flex-1`} style={{backgroundColor: theme.colors.backgroundSecondary}}>
             <Text>Home</Text>

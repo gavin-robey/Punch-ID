@@ -1,12 +1,7 @@
-import React, { FC } from 'react';
+import  { FC } from 'react';
 import {View, Text} from 'react-native';
 
-interface Props {
-
-}
-
-
-const Reports : FC<Props> = (props) => {
+const Reports : FC = () => {
     return (
         <View className='flex-1'>
             <Text>Reports</Text>

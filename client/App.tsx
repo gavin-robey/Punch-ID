@@ -1,15 +1,14 @@
 import './global.css';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { Modal, Platform, StyleSheet, useColorScheme} from "react-native";
+import { Platform, StyleSheet } from "react-native";
 import { GluestackUIProvider} from './components/ui/gluestack-ui-provider';
-import { useState } from 'react';
 import Navigator  from './src/navigator/index';
 import { Provider } from 'react-redux';
 import store from './src/store';
 
 export default function App() {
-  const systemScheme = useColorScheme();
-  const [mode] = useState<'light' | 'dark'>(systemScheme === 'dark' ? 'dark' : 'light');
+  // const systemScheme = useColorScheme();
+  // const [mode] = useState<'light' | 'dark'>(systemScheme === 'dark' ? 'dark' : 'light');
 
   return (
     <Provider store={store}>
