@@ -12,16 +12,10 @@ import { sendErrorRes } from "src/utils/helper";
 import jwt from "jsonwebtoken";
 import mail from "src/utils/mail";
 import PasswordResetTokenModel from "src/models/passwordResetToken";
-import { v2 as cloudinary } from 'cloudinary';
+import cloudinary from "src/utils/cloudinary";
 import { isValidObjectId } from "mongoose";
 
 dotenv.config();
-cloudinary.config({
-    cloud_name: process.env.CLOUD_NAME!,
-    api_key: process.env.CLOUD_KEY!,
-    api_secret: process.env.CLOUD_SECRET!,
-    secure: true
-});
 
 /**
  * Creates a new user account

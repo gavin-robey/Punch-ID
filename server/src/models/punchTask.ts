@@ -1,20 +1,34 @@
 import {model, Schema} from "mongoose";
 
 export enum Status {
-    STARTED,
-    INPROGRESS,
-    COMPLETE,
-    LATE
+    STARTED = 'Open',
+    INPROGRESS = "In progress",
+    COMPLETE = "Complete",
+    LATE = "Late"
+}
+
+export enum ContentType {
+    MEDIA = "media",
+    NOTES = "notes",
+    ATTACHMENT = "attachment"
+}
+
+export enum Visibility {
+    PROJECT = "project",
+    TEMPLATE = "template"
 }
 
 interface PunchTask {
     jobId: Schema.Types.ObjectId;
     name: string;
+    description?: string;
+    contentType: ContentType;
+    visibility: Visibility;
     media?: {
         url: string, 
         id: string 
     };
-    status: String;
+    status: Status;
     notes: [string];
     dateDue: Date;
     punchId: string;
@@ -29,6 +43,19 @@ const punchTaskSchema = new Schema<PunchTask>({
         type: String,
         required: true,
     },
+    description: {
+        type: String,
+    },
+    contentType: {
+        type: String,
+        enum: Object.values(ContentType),
+        required: true,
+    },
+    visibility: {
+        type: String,
+        enum: Object.values(Visibility),
+        default: Visibility.PROJECT,
+    },
     media: {
         type: Object,
         url: String,
@@ -36,7 +63,7 @@ const punchTaskSchema = new Schema<PunchTask>({
     },
     status: {
         type: String,
-        enum: Status,
+        enum: Object.values(Status),
         default: Status.STARTED,
     },
     notes: {

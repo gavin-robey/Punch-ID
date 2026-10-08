@@ -10,7 +10,15 @@ import { theme } from '@/utils/theme';
 import { AntDesign } from '@react-native-vector-icons/ant-design';
 
 
-const Tab = createBottomTabNavigator();
+export type TabParamList = {
+    HomeNavigator: undefined,
+    PunchNavigator: undefined,
+    ScanNavigator: undefined,
+    ReportsNavigator: undefined,
+    ProfileNavigator: undefined,
+}
+
+const Tab = createBottomTabNavigator<TabParamList>();
 
 const TabNavigator: React.FC = () => {
     return (

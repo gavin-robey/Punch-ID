@@ -1,4 +1,5 @@
 import * as yup from "yup";
+import { ContentType, Visibility } from "src/models/punchTask";
 
 export const newJobSchema = yup.object({
     name: yup
@@ -21,5 +22,20 @@ export const newTaskSchema = yup.object({
             if (!value) return false;
             const date = new Date(value);
             return !isNaN(date.getTime());
+        }),
+    description: yup
+        .string(),
+    contentType: yup
+        .string()
+        .oneOf(Object.values(ContentType), "Invalid content type")
+        .required("Content type is required"),
+    visibility: yup
+        .string()
+        .oneOf(Object.values(Visibility), "Invalid visibility"),
+    notes: yup
+        .string()
+        .when("contentType", {
+            is: ContentType.NOTES,
+            then: (schema) => schema.required("Notes are required")
         })
 })

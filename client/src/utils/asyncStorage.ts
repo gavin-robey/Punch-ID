@@ -18,7 +18,8 @@ const clear = async() => {
 
 export enum Keys {
     AUTH_TOKEN = "AUTH_TOKEN",
-    REFRESH_TOKEN = "REFRESH_TOKEN"
+    REFRESH_TOKEN = "REFRESH_TOKEN",
+    CURRENT_JOB = "CURRENT_JOB"
 }
 
 export default {
