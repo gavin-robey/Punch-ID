@@ -1,9 +1,9 @@
 import client from "@/api/client";
 import { runAxiosAsync } from "@/api/runAxiosAsync";
 import { updateAuthState } from "@/store/auth";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useDispatch } from "react-redux";
 import { ShowErrorToast } from "../../components/ErrorToast";
+import asyncStorage, { Keys } from "@/utils/asyncStorage";
 
 export type UserInfo = {
     email: string;  
@@ -40,9 +40,9 @@ const useAuth = () => {
 
         await new Promise((resolve) => setTimeout(resolve, 500));
         if(res.data){
-            await AsyncStorage.setItem('access-token', res.data.tokens.access);
-            await AsyncStorage.setItem('refresh-token', res.data.tokens.refresh);
-            dispatch(updateAuthState({ profile: res.data.profile, pending: false }));
+            await asyncStorage.save(Keys.AUTH_TOKEN, res.data.tokens.access);
+            await asyncStorage.save(Keys.REFRESH_TOKEN, res.data.tokens.refresh);
+            dispatch(updateAuthState({ profile: {...res.data.profile, accessToken: res.data.tokens.access}, pending: false }));
         }else{
             if(res.error.toLowerCase().includes("email") || res.error.toLowerCase().includes("user")) setEmailInvalid(true);
             if(res.error.toLowerCase().includes("password") || res.error.toLowerCase().includes("credentials")) setPasswordInvalid(true);

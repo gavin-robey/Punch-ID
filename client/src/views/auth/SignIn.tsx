@@ -13,6 +13,7 @@ import { useToast } from '../../../components/ui/toast';
 import { Spinner } from '../../../components/ui/spinner';
 import useAuth from '@/hooks/useAuth';
 
+
 const styles = {
     container: `flex-1 justify-center p-6 md:mx-auto md:w-full md:max-w-[520px] md:p-10 pt-15`,
     input: `mb-3.5 min-h-0 rounded-lg border px-3.5 py-3 md:min-h-12`,

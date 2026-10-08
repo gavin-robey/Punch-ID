@@ -8,6 +8,7 @@ export interface Profile {
     name: string;
     verified: boolean;
     avatar?: string | undefined;
+    accessToken: string;
 }
 
 interface AuthState {

@@ -1,4 +1,4 @@
-import {model, Schema, Document, Model} from "mongoose";
+import {model, Schema, Types, Model} from "mongoose";
 import {hash, compare, genSalt } from "bcrypt";
 
 interface User {
@@ -7,6 +7,7 @@ interface User {
     name: string;
     verified: boolean;
     tokens: [string];
+    jobs: [Types.ObjectId];
     avatar?: {
         url: string, 
         id: string 
@@ -37,6 +38,7 @@ const userSchema = new Schema<User, Model<User, any, Methods>, Methods>({
         default: false
     },
     tokens: [String],
+    jobs: [Schema.Types.ObjectId],
     avatar: {
         type: Object,
         url: String,

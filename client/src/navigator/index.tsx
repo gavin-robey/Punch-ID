@@ -3,23 +3,24 @@ import AuthNavigator from './auth/AuthNavigator';
 import { useDispatch, useSelector } from 'react-redux';
 import { getAuthState, Profile, updateAuthState } from '@/store/auth';
 import React, { useEffect } from 'react';
-import client from '@/api/client';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { runAxiosAsync } from "@/api/runAxiosAsync";
 import LoadingSpinner from "../../components/LoadingSpinner";
 import TabNavigator from "./TabNavigator";
+import useClient from "@/hooks/useClient";
+import asyncStorage, { Keys } from "@/utils/asyncStorage";
 
 const Navigator: React.FC = () => {
     const authState = useSelector(getAuthState);
     const dispatch = useDispatch();
     const loggedIn = authState.profile ? true : false;
+    const {authClient} = useClient();
 
     const fetchAuthState = async () => {
-        const accessToken = await AsyncStorage.getItem('access-token');
+        const accessToken = await asyncStorage.get(Keys.AUTH_TOKEN);
         if(accessToken) { 
             dispatch(updateAuthState({ pending: true, profile: null }))
             const res = await runAxiosAsync<{profile: Profile}>(
-                client.get('auth/get-profile', {
+                authClient.get('auth/get-profile', {
                     headers: {
                         Authorization: `Bearer ${accessToken}`
                     }
