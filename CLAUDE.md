@@ -2,6 +2,14 @@
 
 Monorepo: `client/` (Expo / React Native, TypeScript) and `server/`.
 
+## Docker
+- `docker compose up --build` from the repo root starts three containers: `mongo` (mongo:7), `server` (port 3000; nodemon + tsx with `server/src` mounted) and `client` (Expo/Metro on port 8081 with `client/` mounted). Setup steps for developers are in `README.md`.
+- Secrets come from `server/.env` (template: `server/.env.example`). Compose overrides `PORT` and `URI`, pointing `URI` at the `mongo` service.
+- When a new env var is added to the server, add it to `server/.env.example` too. Client env vars must start with `EXPO_PUBLIC_` to reach the app; add them to the root `.env.example` and the `client` service in `docker-compose.yml`.
+- The API base URL comes from `EXPO_PUBLIC_API_URL` (default `http://localhost:3000/`). Never hardcode a host in client code.
+- After a dependency change, rebuild the images (`docker compose up --build -V`). Install packages with `npx expo install` so they match the Expo SDK, and keep `package-lock.json` committed; the images install with `npm ci`.
+- The server always runs through `tsx` (not `tsc` output), because the `src/*` import aliases are only resolved from `tsconfig.json` at runtime.
+
 ## Client UI rules
 
 ### Visual theme

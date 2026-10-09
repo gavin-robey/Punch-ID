@@ -1,0 +1,60 @@
+name: punch-id
+
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    # --quiet drops the connection open/close logs (the health check connects every few seconds)
+    command: ["mongod", "--quiet"]
+    ports:
+      - "${MONGO_HOST_PORT:-27018}:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      # check every 2s while starting so the server can start quickly, then only once a minute to keep the logs quiet
+      start_period: 30s
+      start_interval: 2s
+      interval: 60s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build: ./server
+    env_file:
+      # secrets (JWT, Mailtrap, Cloudinary), see server/.env.example
+      - path: ./server/.env
+        required: false
+    environment:
+      PORT: "3000"
+      URI: mongodb://mongo:27017/punch-id
+    ports:
+      - "3000:3000"
+    depends_on:
+      mongo:
+        condition: service_healthy
+    volumes:
+      # live reload: source comes from the host, node_modules stay in the image
+      - ./server/src:/app/src
+    command: ["npx", "nodemon", "--legacy-watch", "--watch", "src", "--ext", "ts,json,html,js,css", "--exec", "tsx src/index.ts"]
+
+  client:
+    build: ./client
+    # a TTY makes Expo print its QR code and URLs, and stdin lets `docker attach` use its key commands
+    tty: true
+    stdin_open: true
+    environment:
+      EXPO_PUBLIC_API_URL: ${EXPO_PUBLIC_API_URL:-http://localhost:3000/}
+      REACT_NATIVE_PACKAGER_HOSTNAME: ${REACT_NATIVE_PACKAGER_HOSTNAME:-localhost}
+    ports:
+      - "8081:8081"
+    depends_on:
+      - server
+    volumes:
+      # live reload: source comes from the host, the anonymous volumes keep the image's installed node_modules
+      - ./client:/app
+      - /app/node_modules
+      - /app/.expo
+
+volumes:
+  mongo-data:
