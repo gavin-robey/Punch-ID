@@ -10,7 +10,7 @@ import { CompositeNavigationProp, NavigationProp, useNavigation } from '@react-n
 import { AntDesign } from '@react-native-vector-icons/ant-design';
 import { FC, useEffect, useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
-import { Image, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Image, RefreshControl, ScrollView, Text, TouchableOpacity, View, Pressable } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { showErrorToast } from '@/components/ErrorToast';
 import StatusBadge, { statusColors, statusLabels } from '@/components/StatusBadge';
@@ -38,8 +38,9 @@ const LANGUAGES = [
     { code: 'fr', label: 'Français', flag: '🇫🇷' },
 ];
 
-const TopBar: FC<{ name: string; subtitle: string; avatar?: string; notifications: number }> = ({ name, subtitle, avatar, notifications }) => {
+const TopBar: FC<{ name: string; subtitle: string; avatar?: string; notifications: number}> = ({ name, subtitle, avatar, notifications }) => {
     const initials = name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase();
+    const { navigate } = useNavigation<HomeNavigation>();
 
     return (
         <View className='flex-row items-center justify-between'>
@@ -59,13 +60,13 @@ const TopBar: FC<{ name: string; subtitle: string; avatar?: string; notification
                         </View>
                     )}
                 </TouchableOpacity>
-                <View className='h-9 w-9 items-center justify-center overflow-hidden rounded-full border' style={{ backgroundColor: theme.colors.backgroundTertiary, borderColor: theme.colors.border }}>
+                <Pressable className='h-9 w-9 items-center justify-center overflow-hidden rounded-full border' style={{ backgroundColor: theme.colors.backgroundTertiary, borderColor: theme.colors.border }} onPress={() => navigate('ProfileNavigator')}>
                     {avatar ? (
                         <Image source={{ uri: avatar }} className='h-full w-full' />
                     ) : (
                         <Text className='text-sm font-bold' style={{ color: theme.colors.textPrimary }}>{initials}</Text>
                     )}
-                </View>
+                </Pressable>
             </View>
         </View>
     );
@@ -233,33 +234,39 @@ const ArrowThumbnail: FC = () => (
     </View>
 );
 
-const ActivityRow: FC<{ item: PunchTask; jobName: string; owner: string; isLast: boolean }> = ({ item, jobName, owner, isLast }) => (
-    <>
-        <TouchableOpacity className='flex-row items-center py-3'>
+const ActivityRow: FC<{ item: PunchTask; jobName: string; owner: string; isLast: boolean }> = ({ item, jobName, owner, isLast }) => {
+    const { navigate } = useNavigation<HomeNavigation>();
+    return (
+        <>
+            <TouchableOpacity className='flex-row items-center py-3' onPress={()=> navigate("PunchItem", {id: item.id})}>
+                <ArrowThumbnail />
+                <View className='ml-3 flex-1'>
+                    <Text className='text-base font-semibold' style={{ color: theme.colors.textPrimary }} numberOfLines={1}>{item.name}</Text>
+                    <Text className='text-xs' style={{ color: theme.colors.textMuted }} numberOfLines={1}>#{item.punchId} · {jobName}</Text>
+                    <Text className='mt-0.5 text-xs' style={{ color: theme.colors.textSecondary }}>{timeAgo(item.updatedAt)} by {owner}</Text>
+                </View>
+                <StatusBadge status={item.status} />
+                <AntDesign name='right' size={14} color={theme.colors.iconMuted} style={{ marginLeft: 8 }} />
+            </TouchableOpacity>
+            {!isLast && <View className={styles.divider} style={{ backgroundColor: theme.colors.border }} />}
+        </>
+    )
+};
+
+// TODO: scans aren't tracked yet, so this lists QR codes most recently registered to the job
+const ScanRow: FC<{ item: PunchTask; owner: string }> = ({ item, owner }) => {
+    const { navigate } = useNavigation<HomeNavigation>();
+    return (
+        <TouchableOpacity className='flex-row items-center py-2.5' onPress={() => navigate('PunchItem', { id: item.id })}>
             <ArrowThumbnail />
             <View className='ml-3 flex-1'>
                 <Text className='text-base font-semibold' style={{ color: theme.colors.textPrimary }} numberOfLines={1}>{item.name}</Text>
-                <Text className='text-xs' style={{ color: theme.colors.textMuted }} numberOfLines={1}>#{item.punchId} · {jobName}</Text>
-                <Text className='mt-0.5 text-xs' style={{ color: theme.colors.textSecondary }}>{timeAgo(item.updatedAt)} by {owner}</Text>
+                <Text className='text-xs' style={{ color: theme.colors.textSecondary }}>Scanned {timeAgo(item.createdAt)}</Text>
+                <Text className='text-xs' style={{ color: theme.colors.textMuted }}>By {owner}</Text>
             </View>
-            <StatusBadge status={item.status} />
-            <AntDesign name='right' size={14} color={theme.colors.iconMuted} style={{ marginLeft: 8 }} />
         </TouchableOpacity>
-        {!isLast && <View className={styles.divider} style={{ backgroundColor: theme.colors.border }} />}
-    </>
-);
-
-// TODO: scans aren't tracked yet, so this lists QR codes most recently registered to the job
-const ScanRow: FC<{ item: PunchTask; owner: string }> = ({ item, owner }) => (
-    <TouchableOpacity className='flex-row items-center py-2.5'>
-        <ArrowThumbnail />
-        <View className='ml-3 flex-1'>
-            <Text className='text-base font-semibold' style={{ color: theme.colors.textPrimary }} numberOfLines={1}>{item.name}</Text>
-            <Text className='text-xs' style={{ color: theme.colors.textSecondary }}>Scanned {timeAgo(item.createdAt)}</Text>
-            <Text className='text-xs' style={{ color: theme.colors.textMuted }}>By {owner}</Text>
-        </View>
-    </TouchableOpacity>
-);
+    )
+};
 
 const EmptyRow: FC<{ message: string }> = ({ message }) => (
     <Text className='py-4 text-center text-sm' style={{ color: theme.colors.textMuted }}>{message}</Text>

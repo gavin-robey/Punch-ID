@@ -1,6 +1,8 @@
 import client from "@/api/client";
 import { runAxiosAsync } from "@/api/runAxiosAsync";
 import { updateAuthState } from "@/store/auth";
+import { updateCurrentJob, updateJobState } from "@/store/jobs";
+import useClient from "@/hooks/useClient";
 import { useDispatch } from "react-redux";
 import { ShowErrorToast } from "../../components/ErrorToast";
 import asyncStorage, { Keys } from "@/utils/asyncStorage";
@@ -15,7 +17,8 @@ export type SignInRes = {
         id: string;
         email: string;
         name: string;
-        verified: boolean
+        verified: boolean;
+        avatar?: string;
     };
     tokens: {
         refresh: string;
@@ -27,6 +30,7 @@ export type ToastInfo = Omit<ShowErrorToast, "description">;
 
 const useAuth = () => {
     const dispatch = useDispatch();
+    const { authClient } = useClient();
 
     const signIn = async (
         userInfo: UserInfo, 
@@ -51,7 +55,31 @@ const useAuth = () => {
         }
     }
 
-    return { signIn }
+    // revokes the refresh token on the server, then clears everything stored locally for this user
+    const signOut = async () => {
+        const accessToken = await asyncStorage.get(Keys.AUTH_TOKEN);
+        const refreshToken = await asyncStorage.get(Keys.REFRESH_TOKEN);
+
+        // local sign out still happens if this fails (e.g. expired session), so the error is only returned
+        const res = await runAxiosAsync(
+            authClient.post('auth/sign-out', { refreshToken }, {
+                headers: {
+                    Authorization: `Bearer ${accessToken}`
+                }
+            })
+        );
+
+        await asyncStorage.remove(Keys.AUTH_TOKEN);
+        await asyncStorage.remove(Keys.REFRESH_TOKEN);
+        await asyncStorage.remove(Keys.CURRENT_JOB);
+        dispatch(updateJobState({ jobs: null, pending: false }));
+        dispatch(updateCurrentJob(null));
+        dispatch(updateAuthState({ profile: null, pending: false }));
+
+        return { error: res.error };
+    }
+
+    return { signIn, signOut }
 };
 
 export default useAuth;

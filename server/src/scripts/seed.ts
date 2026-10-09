@@ -1,5 +1,5 @@
 /**
- * Seeds the database with 3 job sites, each with 10 punch tasks.
+ * Seeds the database with 3 job sites, each with 10 punch tasks that have 3-5 instruction steps.
  *
  * Usage (from the server directory):
  *   npm run seed                      -> seeds jobs for the first user in the database
@@ -9,17 +9,18 @@
 import { connect, disconnect } from "mongoose";
 import * as dotenv from "dotenv";
 import JobModel from "src/models/job";
-import PunchTaskModel, { ContentType, Status, Visibility } from "src/models/punchTask";
+import PunchTaskModel, { MediaKind, Status, Visibility } from "src/models/punchTask";
 import UserModel from "src/models/user";
+import InstructionModel from "src/models/instruction";
 
 dotenv.config();
 
 // public cloudinary demo assets, so seeded media resolves without uploading anything
 const SAMPLE_MEDIA = {
-    image: { url: "https://res.cloudinary.com/demo/image/upload/sample.jpg", id: "seed/sample-image" },
-    video: { url: "https://res.cloudinary.com/demo/video/upload/dog.mp4", id: "seed/sample-video" },
-    attachment: { url: "https://res.cloudinary.com/demo/image/upload/multi_page_pdf.pdf", id: "seed/sample-attachment" },
+    image: { url: "https://res.cloudinary.com/demo/image/upload/sample.jpg", id: "seed/sample-image", kind: MediaKind.IMAGE },
+    video: { url: "https://res.cloudinary.com/demo/video/upload/dog.mp4", id: "seed/sample-video", kind: MediaKind.VIDEO },
 };
+const SAMPLE_ATTACHMENT = { url: "https://res.cloudinary.com/demo/image/upload/multi_page_pdf.pdf", id: "seed/sample-attachment", name: "Spec Sheet.pdf", mimeType: "application/pdf" };
 
 const JOB_SITES = [
     { name: "Riverside Apartments – Building A", rooms: ["Unit 101", "Unit 102", "Unit 204", "Lobby", "Stairwell B", "Unit 305", "Mail Room", "Unit 410", "Fitness Room", "Roof Deck"] },
@@ -30,20 +31,21 @@ const JOB_SITES = [
 const TASK_TEMPLATES: {
     issue: string;
     description: string;
-    contentType: ContentType;
-    media?: keyof typeof SAMPLE_MEDIA;
+    media: (keyof typeof SAMPLE_MEDIA)[];
+    attachment?: boolean;
     notes: string[];
+    steps: { title: string; note: string }[];
 }[] = [
-    { issue: "Outlet", description: "Outlet cover plate cracked and not flush with the wall.", contentType: ContentType.MEDIA, media: "image", notes: ["Replace with white decora cover plate."] },
-    { issue: "Light Switch", description: "Switch is wired to the wrong fixture.", contentType: ContentType.NOTES, notes: ["Swap leads so the switch controls the overhead light.", "Confirm with electrician before closing the box."] },
-    { issue: "Paint Touch Up", description: "Scuffs and roller marks on the north wall.", contentType: ContentType.MEDIA, media: "image", notes: ["Use eggshell finish, color SW 7008."] },
-    { issue: "Plumbing", description: "Slow drip from the supply line under the sink.", contentType: ContentType.MEDIA, media: "video", notes: ["Tighten the compression fitting, replace it if it still leaks."] },
-    { issue: "Drywall Repair", description: "Nail pops along the ceiling seam.", contentType: ContentType.NOTES, notes: ["Reset the nails, mud and sand, then prime before painting."] },
-    { issue: "Door Hardware", description: "Door latch does not catch the strike plate.", contentType: ContentType.ATTACHMENT, media: "attachment", notes: ["See the attached hardware spec sheet for the replacement strike."] },
-    { issue: "Flooring", description: "Gap in the LVP transition strip at the doorway.", contentType: ContentType.MEDIA, media: "image", notes: ["Install a T-molding transition."] },
-    { issue: "GFCI Outlet", description: "GFCI does not trip when tested.", contentType: ContentType.MEDIA, media: "video", notes: ["Replace the GFCI and retest every downstream outlet."] },
-    { issue: "Trim Caulking", description: "Open joints between the baseboard and the wall.", contentType: ContentType.NOTES, notes: ["Caulk with paintable white silicone.", "Touch up the paint once cured."] },
-    { issue: "Cabinet Alignment", description: "Upper cabinet doors are misaligned by about 1/4\".", contentType: ContentType.ATTACHMENT, media: "attachment", notes: ["Adjust the hinges per the manufacturer's install guide."] },
+    { issue: "Outlet", description: "Outlet cover plate cracked and not flush with the wall.", media: ["image"], notes: ["Replace with white decora cover plate."], steps: [{ title: "Verify Outlet Type", note: "Confirm standard duplex 120V" }, { title: "Install Cover Plate", note: "Install white duplex cover plate" }, { title: "Secure Screws", note: "Tighten screws and ensure plate is secure" }, { title: "Inspect Work", note: "Verify alignment and finish" }, { title: "Take Photo", note: "Upload photo of completed work" }] },
+    { issue: "Light Switch", description: "Switch is wired to the wrong fixture.", media: [], notes: ["Swap leads so the switch controls the overhead light.", "Confirm with electrician before closing the box."], steps: [{ title: "Shut Off Breaker", note: "Kill power at the panel and verify with a tester" }, { title: "Swap Leads", note: "Move the load wire to the correct fixture" }, { title: "Test Fixture", note: "Confirm the switch controls the overhead light" }] },
+    { issue: "Paint Touch Up", description: "Scuffs and roller marks on the north wall.", media: ["image"], notes: ["Use eggshell finish, color SW 7008."], steps: [{ title: "Clean Surface", note: "Wipe the wall down and let it dry" }, { title: "Apply Paint", note: "Roll one coat of SW 7008 eggshell" }, { title: "Inspect Finish", note: "Check for roller marks in raking light" }, { title: "Take Photo", note: "Upload photo of completed work" }] },
+    { issue: "Plumbing", description: "Slow drip from the supply line under the sink.", media: ["video", "image"], notes: ["Tighten the compression fitting, replace it if it still leaks."], steps: [{ title: "Shut Off Supply", note: "Close the angle stop under the sink" }, { title: "Tighten Fitting", note: "Snug the compression nut a quarter turn" }, { title: "Leak Test", note: "Open the supply and check for drips after 10 minutes" }] },
+    { issue: "Drywall Repair", description: "Nail pops along the ceiling seam.", media: [], notes: ["Reset the nails, mud and sand, then prime before painting."], steps: [{ title: "Reset Nails", note: "Drive popped nails and add a screw beside each" }, { title: "Mud And Sand", note: "Apply two coats of compound and sand smooth" }, { title: "Prime", note: "Spot prime the repaired areas" }, { title: "Paint", note: "Paint to match the ceiling" }] },
+    { issue: "Door Hardware", description: "Door latch does not catch the strike plate.", media: ["image"], attachment: true, notes: ["See the attached hardware spec sheet for the replacement strike."], steps: [{ title: "Check Strike Alignment", note: "Mark where the latch meets the strike" }, { title: "Adjust Strike Plate", note: "Move or file the strike so the latch catches" }, { title: "Test Latch", note: "Close the door 5 times and confirm it latches" }] },
+    { issue: "Flooring", description: "Gap in the LVP transition strip at the doorway.", media: ["image"], notes: ["Install a T-molding transition."], steps: [{ title: "Measure Gap", note: "Measure the doorway gap width" }, { title: "Cut T-Molding", note: "Cut the transition strip to length" }, { title: "Install Transition", note: "Set the track and snap in the T-molding" }, { title: "Inspect Work", note: "Confirm the strip is flush and secure" }] },
+    { issue: "GFCI Outlet", description: "GFCI does not trip when tested.", media: ["video", "image"], notes: ["Replace the GFCI and retest every downstream outlet."], steps: [{ title: "Shut Off Breaker", note: "Kill power and verify with a tester" }, { title: "Replace GFCI", note: "Install a new GFCI with line/load wired correctly" }, { title: "Test Trip", note: "Press test and confirm the device trips" }, { title: "Test Downstream", note: "Verify each downstream outlet loses power on trip" }, { title: "Take Photo", note: "Upload photo of completed work" }] },
+    { issue: "Trim Caulking", description: "Open joints between the baseboard and the wall.", media: [], notes: ["Caulk with paintable white silicone.", "Touch up the paint once cured."], steps: [{ title: "Clean Joints", note: "Remove dust and old caulk" }, { title: "Caulk Joints", note: "Run a bead of paintable white silicone" }, { title: "Touch Up Paint", note: "Paint once the caulk has cured" }] },
+    { issue: "Cabinet Alignment", description: "Upper cabinet doors are misaligned by about 1/4\".", media: ["image"], attachment: true, notes: ["Adjust the hinges per the manufacturer's install guide."], steps: [{ title: "Check Hinges", note: "Identify which hinges are out of adjustment" }, { title: "Adjust Hinges", note: "Use the side and depth screws to align the doors" }, { title: "Verify Gaps", note: "Confirm even 1/8\" reveals between doors" }] },
 ];
 
 const STATUSES = Object.values(Status);
@@ -81,9 +83,9 @@ const seed = async () => {
                 jobId: job._id as any,
                 name: `${site.rooms[taskIndex]} – ${template.issue}`,
                 description: template.description,
-                contentType: template.contentType,
                 visibility: taskIndex % 4 === 0 ? Visibility.TEMPLATE : Visibility.PROJECT,
-                media: template.media ? SAMPLE_MEDIA[template.media] : undefined,
+                media: template.media.map((kind) => SAMPLE_MEDIA[kind]),
+                attachments: template.attachment ? [SAMPLE_ATTACHMENT] : [],
                 status,
                 notes: template.notes,
                 dateDue,
@@ -95,8 +97,27 @@ const seed = async () => {
         job.punchTasks.push(...created.map((task) => task._id));
         await job.save();
 
+        // instruction steps: completed tasks have every step done, in progress tasks have the first half done
+        let stepCount = 0;
+        for(const [taskIndex, task] of created.entries()){
+            const steps = TASK_TEMPLATES[taskIndex].steps;
+            const doneCount = task.status === Status.COMPLETE ? steps.length : task.status === Status.INPROGRESS ? Math.floor(steps.length / 2) : 0;
+
+            const instructions = await InstructionModel.insertMany(steps.map((step, stepIndex) => ({
+                taskId: task._id as any,
+                title: step.title,
+                note: step.note,
+                complete: stepIndex < doneCount,
+                status: stepIndex < doneCount ? Status.COMPLETE : Status.STARTED,
+            })));
+
+            task.instructions = instructions.map((instruction) => instruction._id);
+            await task.save();
+            stepCount += instructions.length;
+        }
+
         owner.jobs.push(job._id);
-        console.log(`  ✓ ${site.name}: ${created.length} punch tasks`);
+        console.log(`  ✓ ${site.name}: ${created.length} punch tasks, ${stepCount} instruction steps`);
     }
 
     await owner.save();

@@ -23,7 +23,8 @@
         {
           "photosPermission": "Allow Punch ID to access your photos so you can attach them to punch items."
         }
-      ]
+      ],
+      "expo-video"
     ],
     "orientation": "portrait",
     "icon": "./src/assets/icon.png",

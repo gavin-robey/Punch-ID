@@ -1,4 +1,4 @@
-import {model, Schema} from "mongoose";
+import {model, Schema, Types} from "mongoose";
 
 export enum Status {
     STARTED = 'Open',
@@ -7,10 +7,9 @@ export enum Status {
     LATE = "Late"
 }
 
-export enum ContentType {
-    MEDIA = "media",
-    NOTES = "notes",
-    ATTACHMENT = "attachment"
+export enum MediaKind {
+    IMAGE = "image",
+    VIDEO = "video"
 }
 
 export enum Visibility {
@@ -18,20 +17,31 @@ export enum Visibility {
     TEMPLATE = "template"
 }
 
+export interface MediaItem {
+    url: string;
+    id: string;
+    kind: MediaKind;
+}
+
+export interface AttachmentItem {
+    url: string;
+    id: string;
+    name: string;
+    mimeType?: string;
+}
+
 interface PunchTask {
     jobId: Schema.Types.ObjectId;
     name: string;
     description?: string;
-    contentType: ContentType;
     visibility: Visibility;
-    media?: {
-        url: string, 
-        id: string 
-    };
+    media: MediaItem[];
+    attachments: AttachmentItem[];
     status: Status;
     notes: [string];
     dateDue: Date;
     punchId: string;
+    instructions: Types.ObjectId[];
 }
 
 const punchTaskSchema = new Schema<PunchTask>({
@@ -46,20 +56,31 @@ const punchTaskSchema = new Schema<PunchTask>({
     description: {
         type: String,
     },
-    contentType: {
-        type: String,
-        enum: Object.values(ContentType),
-        required: true,
-    },
     visibility: {
         type: String,
         enum: Object.values(Visibility),
         default: Visibility.PROJECT,
     },
+    // photos and videos from the camera roll
     media: {
-        type: Object,
-        url: String,
-        id: String
+        type: [{
+            _id: false,
+            url: { type: String, required: true },
+            id: { type: String, required: true },
+            kind: { type: String, enum: Object.values(MediaKind), required: true },
+        }],
+        default: [],
+    },
+    // any other uploaded files (pdfs, spec sheets, ...)
+    attachments: {
+        type: [{
+            _id: false,
+            url: { type: String, required: true },
+            id: { type: String, required: true },
+            name: { type: String, required: true },
+            mimeType: { type: String },
+        }],
+        default: [],
     },
     status: {
         type: String,
@@ -68,6 +89,7 @@ const punchTaskSchema = new Schema<PunchTask>({
     },
     notes: {
         type: [String],
+        default: [],
     },
     dateDue: {
         type: Date,
@@ -76,6 +98,11 @@ const punchTaskSchema = new Schema<PunchTask>({
     punchId : {
         type: String,
         required: true,
+    },
+    // ordered list of instruction steps for this task
+    instructions: {
+        type: [Schema.Types.ObjectId],
+        default: [],
     },
 }, {
     timestamps: true

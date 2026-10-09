@@ -127,7 +127,8 @@ export const signIn : RequestHandler = async(req, res) => {
             id: user._id,
             email: user.email,
             name: user.name,
-            verified: user.verified
+            verified: user.verified,
+            avatar: user.avatar?.url
         },
         tokens: {
             refresh: refreshToken, 

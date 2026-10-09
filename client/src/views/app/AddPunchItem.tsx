@@ -12,25 +12,22 @@ import asyncStorage, { Keys } from '@/utils/asyncStorage';
 import { yupValidate } from '@/utils/validator';
 import useClient from '@/hooks/useClient';
 import useJobs from '@/hooks/useJobs';
-import { newTaskSchema } from '@/validation/job';
+import { newInstructionSchema, newTaskSchema } from '@/validation/job';
 import { AppStackParamList } from '@/navigator/app/AppNavigator';
 import JobSelect from '@/components/JobSelect';
 import { Spinner } from '@/components/ui/spinner';
 import { useToast } from '@/components/ui/toast';
 import { showErrorToast } from '@/components/ErrorToast';
 import { showToast } from '@/components/Toast';
+import AddStepForm from '@/components/AddStepForm';
 
-type ContentType = 'media' | 'notes' | 'attachment';
 type PickedFile = { uri: string; name: string; mimeType?: string; size?: number; file?: File };
 type Visibility = 'project' | 'template';
+type StepDraft = { title: string; note: string };
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // cloudinary's single request upload limit
-
-const CONTENT_TYPES: { type: ContentType; label: string; subtitle: string; icon: 'picture' | 'file-text' | 'paper-clip' }[] = [
-    { type: 'media', label: 'Photo / Video', subtitle: 'From your camera roll', icon: 'picture' },
-    { type: 'notes', label: 'Notes', subtitle: 'Add text notes', icon: 'file-text' },
-    { type: 'attachment', label: 'Attachment', subtitle: 'Upload any file', icon: 'paper-clip' },
-];
+const MAX_TOTAL_SIZE = 200 * 1024 * 1024; // the server's upload parser limit for one request
+const MAX_FILES = 10; // per section, matches the server
 
 const VISIBILITY_OPTIONS: { value: Visibility; label: string; subtitle: string }[] = [
     { value: 'project', label: 'Project Only', subtitle: 'Only visible to project members' },
@@ -79,21 +76,65 @@ const Step: FC<{ title: string; subtitle?: string; children: ReactNode }> = ({ t
     </View>
 );
 
-const ContentTypeCard: FC<{ label: string; subtitle: string; icon: 'picture' | 'file-text' | 'paper-clip'; selected: boolean; onPress: () => void }> = ({ label, subtitle, icon, selected, onPress }) => (
+// one section of the upload media card: header with count and an add button, then its items
+const UploadSection: FC<{ icon: 'picture' | 'file-text' | 'paper-clip'; title: string; count: number; actionLabel: string; onAction?: () => void; children: ReactNode }> = ({ icon, title, count, actionLabel, onAction, children }) => (
+    <View className='mb-3 rounded-xl border p-3' style={{ borderColor: theme.colors.border }}>
+        <View className='mb-2 flex-row items-center'>
+            <AntDesign name={icon} size={20} color={theme.colors.primary} />
+            <Text className='ml-2 flex-1 text-sm font-bold' style={{ color: theme.colors.textPrimary }}>
+                {title} <Text style={{ color: theme.colors.textMuted }}>({count})</Text>
+            </Text>
+            {onAction && (
+                <TouchableOpacity className='flex-row items-center rounded-lg px-3 py-1.5' style={{ backgroundColor: theme.colors.primaryMuted }} onPress={onAction}>
+                    <AntDesign name='plus' size={12} color={theme.colors.primary} />
+                    <Text className='ml-1 text-xs font-bold' style={{ color: theme.colors.primary }}>{actionLabel}</Text>
+                </TouchableOpacity>
+            )}
+        </View>
+        {children}
+    </View>
+);
+
+const EmptyUpload: FC<{ message: string }> = ({ message }) => (
+    <View className='items-center rounded-lg border border-dashed py-4' style={{ borderColor: theme.colors.border }}>
+        <Text className='text-xs' style={{ color: theme.colors.textMuted }}>{message}</Text>
+    </View>
+);
+
+const RemoveButton: FC<{ onPress: () => void; floating?: boolean }> = ({ onPress, floating }) => (
     <TouchableOpacity
-        className='w-[31.5%] items-center rounded-xl border px-1 py-4'
-        style={{ borderColor: selected ? theme.colors.primary : theme.colors.border, backgroundColor: selected ? theme.colors.primaryMuted : 'transparent' }}
+        className={`h-6 w-6 items-center justify-center rounded-full ${floating ? 'absolute right-1 top-1' : 'ml-2'}`}
+        style={{ backgroundColor: floating ? theme.colors.overlay : theme.colors.backgroundSecondary }}
         onPress={onPress}
+        hitSlop={6}
     >
-        {selected && (
-            <View className='absolute right-1.5 top-1.5'>
-                <AntDesign name='check-circle' size={16} color={theme.colors.primary} />
-            </View>
-        )}
-        <AntDesign name={icon} size={30} color={selected ? theme.colors.primary : theme.colors.iconMuted} />
-        <Text className='mt-2 text-sm font-bold' style={{ color: theme.colors.textPrimary }}>{label}</Text>
-        <Text className='mt-0.5 text-center text-[11px]' style={{ color: theme.colors.textMuted }}>{subtitle}</Text>
+        <AntDesign name='close' size={12} color={theme.colors.textPrimary} />
     </TouchableOpacity>
+);
+
+const MediaTile: FC<{ item: PickedFile; onRemove: () => void }> = ({ item, onRemove }) => (
+    <View className='mb-2 aspect-square w-[31.5%] items-center justify-center overflow-hidden rounded-lg' style={{ backgroundColor: theme.colors.backgroundTertiary }}>
+        {item.mimeType?.startsWith('video') ? (
+            <>
+                <AntDesign name='play-circle' size={28} color={theme.colors.primary} />
+                <Text className='mt-1 px-1 text-[10px]' style={{ color: theme.colors.textMuted }} numberOfLines={1}>{item.name}</Text>
+            </>
+        ) : (
+            <Image source={{ uri: item.uri }} className='h-full w-full' resizeMode='cover' />
+        )}
+        <RemoveButton floating onPress={onRemove} />
+    </View>
+);
+
+const ListRow: FC<{ icon: 'file-text' | 'paper-clip'; title: string; subtitle?: string; onRemove: () => void }> = ({ icon, title, subtitle, onRemove }) => (
+    <View className='mb-2 flex-row items-center rounded-lg p-2.5' style={{ backgroundColor: theme.colors.backgroundTertiary }}>
+        <AntDesign name={icon} size={16} color={theme.colors.iconMuted} />
+        <View className='ml-2.5 flex-1'>
+            <Text className='text-sm' style={{ color: theme.colors.textPrimary }} numberOfLines={subtitle ? 1 : 3}>{title}</Text>
+            {subtitle ? <Text className='text-xs' style={{ color: theme.colors.textMuted }}>{subtitle}</Text> : null}
+        </View>
+        <RemoveButton onPress={onRemove} />
+    </View>
 );
 
 const RadioOption: FC<{ label: string; subtitle: string; selected: boolean; onPress: () => void }> = ({ label, subtitle, selected, onPress }) => (
@@ -168,22 +209,19 @@ const AddPunchItem: FC = () => {
     const [toastId, setToastId] = useState(0);
 
     const [code, setCode] = useState('');
-    const [contentType, setContentType] = useState<ContentType>('media');
-    const [file, setFile] = useState<PickedFile | null>(null);
-    const [notes, setNotes] = useState('');
+    const [media, setMedia] = useState<PickedFile[]>([]);
+    const [notes, setNotes] = useState<string[]>([]);
+    const [noteDraft, setNoteDraft] = useState('');
+    const [attachments, setAttachments] = useState<PickedFile[]>([]);
+    const [steps, setSteps] = useState<StepDraft[]>([]);
+    const [addingStep, setAddingStep] = useState(false);
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [dateDue, setDateDue] = useState(defaultDueDate);
     const [visibility, setVisibility] = useState<Visibility>('project');
     const [loading, setLoading] = useState(false);
 
-    const canSubmit = Boolean(
-        currentJob &&
-        code.trim() &&
-        title.trim() &&
-        (contentType === 'notes' ? notes.trim() : file) &&
-        !loading
-    );
+    const canSubmit = Boolean(currentJob && code.trim() && title.trim() && !loading);
 
     useEffect(() => {
         fetchJobs().then(({ error }) => {
@@ -194,55 +232,77 @@ const AddPunchItem: FC = () => {
 
     const resetForm = () => {
         setCode('');
-        setFile(null);
-        setNotes('');
+        setMedia([]);
+        setNotes([]);
+        setNoteDraft('');
+        setAttachments([]);
+        setSteps([]);
+        setAddingStep(false);
         setTitle('');
         setDescription('');
         setDateDue(defaultDueDate());
         setVisibility('project');
     };
 
-    const handleContentType = (type: ContentType) => {
-        setContentType(type);
-        setFile(null);
+    // drops files over the per-file limit and anything past the section limit, with a toast explaining why
+    const keepAllowed = (current: PickedFile[], picked: PickedFile[]) => {
+        const sized = picked.filter((file) => !file.size || file.size <= MAX_FILE_SIZE);
+        const allowed = sized.slice(0, Math.max(MAX_FILES - current.length, 0));
+        if(sized.length < picked.length) showErrorToast({ description: 'Files must be 100MB or smaller', toast, toastId, setToastId });
+        else if(allowed.length < sized.length) showErrorToast({ description: `Up to ${MAX_FILES} files per section`, toast, toastId, setToastId });
+        return [...current, ...allowed];
     };
 
-    // photos and videos come from the camera roll, attachments from the file system
-    const handleBrowseFiles = async () => {
-        let picked: PickedFile;
+    const handleAddMedia = async () => {
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images', 'videos'],
+            allowsMultipleSelection: true,
+            selectionLimit: MAX_FILES - media.length,
+            quality: 0.8,
+        });
+        if(result.canceled) return;
 
-        if(contentType === 'media'){
-            const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ['images', 'videos'],
-                quality: 0.8,
-            });
-            if(result.canceled) return;
-
-            const asset = result.assets[0];
+        const picked = result.assets.map((asset, index) => {
             const isVideo = asset.type === 'video';
-            picked = {
+            return {
                 uri: asset.uri,
-                name: asset.fileName ?? `${isVideo ? 'video' : 'photo'}-${Date.now()}.${isVideo ? 'mp4' : 'jpg'}`,
+                name: asset.fileName ?? `${isVideo ? 'video' : 'photo'}-${Date.now()}-${index}.${isVideo ? 'mp4' : 'jpg'}`,
                 mimeType: asset.mimeType ?? (isVideo ? 'video/mp4' : 'image/jpeg'),
                 size: asset.fileSize,
                 file: asset.file,
             };
-        }else{
-            const result = await DocumentPicker.getDocumentAsync({
-                type: '*/*',
-                copyToCacheDirectory: true,
-            });
-            if(result.canceled) return;
+        });
+        setMedia((current) => keepAllowed(current, picked));
+    };
 
-            const asset = result.assets[0];
-            picked = { uri: asset.uri, name: asset.name, mimeType: asset.mimeType, size: asset.size, file: asset.file };
+    const handleAddAttachments = async () => {
+        const result = await DocumentPicker.getDocumentAsync({
+            type: '*/*',
+            multiple: true,
+            copyToCacheDirectory: true,
+        });
+        if(result.canceled) return;
+
+        const picked = result.assets.map((asset) => ({ uri: asset.uri, name: asset.name, mimeType: asset.mimeType, size: asset.size, file: asset.file }));
+        setAttachments((current) => keepAllowed(current, picked));
+    };
+
+    const handleAddNote = () => {
+        if(!noteDraft.trim()) return;
+        setNotes((current) => [...current, noteDraft.trim()]);
+        setNoteDraft('');
+    };
+
+    // steps are kept locally and sent with the punch item, so this only validates
+    const handleAddStep = async (step: StepDraft) => {
+        const { values, error } = await yupValidate(newInstructionSchema, step);
+        if(error || !values){
+            showErrorToast({ description: error ?? 'Invalid step', toast, toastId, setToastId });
+            return false;
         }
 
-        if(picked.size && picked.size > MAX_FILE_SIZE){
-            showErrorToast({ description: 'File must be 100MB or smaller', toast, toastId, setToastId });
-            return;
-        }
-        setFile(picked);
+        setSteps((current) => [...current, { title: values.title.trim(), note: values.note?.trim() ?? '' }]);
+        return true;
     };
 
     const handleSubmit = async () => {
@@ -250,8 +310,6 @@ const AddPunchItem: FC = () => {
         const { values, error } = await yupValidate(newTaskSchema, {
             id: currentJob?.id ?? '',
             punchId: code,
-            contentType,
-            notes,
             name: title,
             description,
             dateDue,
@@ -264,25 +322,26 @@ const AddPunchItem: FC = () => {
             return
         }
 
-        if(contentType !== 'notes' && !file){
-            showErrorToast({ description: 'Choose a file to upload', toast, toastId, setToastId });
+        const totalSize = [...media, ...attachments].reduce((sum, file) => sum + (file.size ?? 0), 0);
+        if(totalSize > MAX_TOTAL_SIZE){
+            showErrorToast({ description: 'Uploads must total 200MB or less', toast, toastId, setToastId });
             setLoading(false);
             return
         }
 
-        // sent as multipart so the server's fileParser can handle both notes and file uploads
+        // multipart so the server's fileParser receives every file, lists travel as JSON strings
         const formData = new FormData();
         formData.append('id', values.id);
         formData.append('name', values.name.trim());
         formData.append('dateDue', values.dateDue);
-        formData.append('contentType', contentType);
         formData.append('visibility', visibility);
         if(description.trim()) formData.append('description', description.trim());
-        if(contentType === 'notes') formData.append('notes', notes.trim());
-        if(contentType !== 'notes' && file){
-            // web returns a File object, native needs the { uri, name, type } shape
-            formData.append('file', (file.file ?? { uri: file.uri, name: file.name, type: file.mimeType ?? 'application/octet-stream' }) as any);
-        }
+        if(notes.length) formData.append('notes', JSON.stringify(notes));
+        if(steps.length) formData.append('instructions', JSON.stringify(steps.map((step) => step.note ? step : { title: step.title })));
+        // web returns a File object, native needs the { uri, name, type } shape
+        const toUpload = (file: PickedFile) => (file.file ?? { uri: file.uri, name: file.name, type: file.mimeType ?? 'application/octet-stream' }) as any;
+        media.forEach((file) => formData.append('media', toUpload(file)));
+        attachments.forEach((file) => formData.append('attachments', toUpload(file)));
 
         const accessToken = await asyncStorage.get(Keys.AUTH_TOKEN);
         const res = await runAxiosAsync<{ message: string }>(
@@ -305,31 +364,6 @@ const AddPunchItem: FC = () => {
             resetForm();
         }
         setLoading(false);
-    };
-
-    const renderPreview = () => {
-        if(contentType === 'notes' && notes.trim()){
-            return <Text className='p-4 text-sm' style={{ color: theme.colors.textSecondary }} numberOfLines={4}>{notes}</Text>;
-        }
-        if(file?.mimeType?.startsWith('image')){
-            return <Image source={{ uri: file.uri }} className='h-40 w-full rounded-xl' resizeMode='cover' />;
-        }
-        if(file){
-            return (
-                <View className='flex-row items-center p-4'>
-                    <AntDesign name={file.mimeType?.startsWith('video') ? 'video-camera' : 'file'} size={28} color={theme.colors.primary} />
-                    <View className='ml-3 flex-1'>
-                        <Text className='text-sm font-semibold' style={{ color: theme.colors.textPrimary }} numberOfLines={1}>{file.name}</Text>
-                        <Text className='text-xs' style={{ color: theme.colors.textMuted }}>{formatFileSize(file.size)}</Text>
-                    </View>
-                </View>
-            );
-        }
-        return (
-            <View className='h-24 items-center justify-center'>
-                <AntDesign name={contentType === 'media' ? 'picture' : 'file'} size={32} color={theme.colors.textMuted} />
-            </View>
-        );
     };
 
     return (
@@ -374,47 +408,7 @@ const AddPunchItem: FC = () => {
                     </View>
                 </Step>
 
-                <Step title='3. Content Type' subtitle='Choose what type of content you want to attach.'>
-                    <View className='flex-row justify-between'>
-                        {CONTENT_TYPES.map((item) => (
-                            <ContentTypeCard key={item.type} {...item} selected={contentType === item.type} onPress={() => handleContentType(item.type)} />
-                        ))}
-                    </View>
-                </Step>
-
-                {contentType === 'notes' ? (
-                    <Step title='4. Write Notes' subtitle='Add the task notes for whoever scans this code.'>
-                        <Input className={`${styles.input} h-32`} style={inputStyle}>
-                            <InputField
-                                placeholder='e.g. Outlet cover cracked, replace with white decora cover'
-                                placeholderTextColor={theme.colors.textMuted}
-                                multiline
-                                textAlignVertical='top'
-                                className='py-3'
-                                value={notes}
-                                onChangeText={setNotes}
-                                style={inputTextStyle}
-                            />
-                        </Input>
-                    </Step>
-                ) : (
-                    <Step title='4. Upload File' subtitle={contentType === 'media' ? 'Choose a photo or video from your camera roll.' : 'Upload your file.'}>
-                        <View className='items-center rounded-xl border-2 border-dashed px-4 py-6' style={inputStyle}>
-                            <AntDesign name='cloud-upload' size={40} color={theme.colors.primary} />
-                            <Text className='mt-2 text-sm font-bold' style={{ color: theme.colors.textPrimary }}>
-                                {file ? file.name : contentType === 'media' ? 'Choose a photo or video' : 'Choose a file from your device'}
-                            </Text>
-                            <TouchableOpacity className='mt-4 rounded-lg px-6 py-3' style={{ backgroundColor: theme.colors.primary }} onPress={handleBrowseFiles}>
-                                <Text className='text-sm font-bold' style={{ color: theme.colors.primaryForeground }}>{file ? 'Replace' : contentType === 'media' ? 'Open Camera Roll' : 'Browse Files'}</Text>
-                            </TouchableOpacity>
-                            <Text className='mt-3 text-xs' style={{ color: theme.colors.textMuted }}>
-                                {contentType === 'media' ? 'Photos or videos up to 100MB' : 'Any file up to 100MB'}
-                            </Text>
-                        </View>
-                    </Step>
-                )}
-
-                <Step title='5. Content Details' subtitle='Add a title and description for this content.'>
+                <Step title='3. Content Details' subtitle='Add a title and description for this content.'>
                     <Text className={styles.label} style={{ color: theme.colors.textSecondary }}>
                         Title <Text style={{ color: theme.colors.primary }}>*</Text>
                     </Text>
@@ -442,13 +436,75 @@ const AddPunchItem: FC = () => {
                     <DueDatePicker value={dateDue} onChange={setDateDue} />
                 </Step>
 
-                <Step title='6. Preview (Optional)' subtitle={file || notes.trim() ? 'This is what will be attached.' : 'Upload complete to see a preview.'}>
-                    <View className='overflow-hidden rounded-xl' style={{ backgroundColor: theme.colors.backgroundTertiary }}>
-                        {renderPreview()}
-                    </View>
+                <Step title='4. Upload Media' subtitle='Add any photos, videos, notes and files for this QR code.'>
+                    <UploadSection icon='picture' title='Photos & Videos' count={media.length} actionLabel='Camera Roll' onAction={media.length < MAX_FILES ? handleAddMedia : undefined}>
+                        {media.length ? (
+                            <View className='flex-row flex-wrap justify-between'>
+                                {media.map((item, index) => (
+                                    <MediaTile key={`${item.uri}-${index}`} item={item} onRemove={() => setMedia((current) => current.filter((_, i) => i !== index))} />
+                                ))}
+                                {/* keeps the last row left aligned */}
+                                {media.length % 3 === 2 && <View className='w-[31.5%]' />}
+                            </View>
+                        ) : <EmptyUpload message='Photos or videos up to 100MB each' />}
+                    </UploadSection>
+
+                    <UploadSection icon='file-text' title='Notes' count={notes.length} actionLabel='Add Note' onAction={noteDraft.trim() ? handleAddNote : undefined}>
+                        {notes.map((note, index) => (
+                            <ListRow key={`${index}-${note}`} icon='file-text' title={note} onRemove={() => setNotes((current) => current.filter((_, i) => i !== index))} />
+                        ))}
+                        <Input className={`${styles.input} h-20`} style={inputStyle}>
+                            <InputField
+                                placeholder='e.g. Outlet cover cracked, replace with white decora cover'
+                                placeholderTextColor={theme.colors.textMuted}
+                                multiline
+                                textAlignVertical='top'
+                                className='py-2'
+                                value={noteDraft}
+                                onChangeText={setNoteDraft}
+                                style={inputTextStyle}
+                            />
+                        </Input>
+                    </UploadSection>
+
+                    <UploadSection icon='paper-clip' title='Attachments' count={attachments.length} actionLabel='Browse Files' onAction={attachments.length < MAX_FILES ? handleAddAttachments : undefined}>
+                        {attachments.length ? attachments.map((file, index) => (
+                            <ListRow key={`${file.uri}-${index}`} icon='paper-clip' title={file.name} subtitle={formatFileSize(file.size)} onRemove={() => setAttachments((current) => current.filter((_, i) => i !== index))} />
+                        )) : <EmptyUpload message='PDFs, spec sheets or any file up to 100MB' />}
+                    </UploadSection>
                 </Step>
 
-                <Step title='7. Visibility' subtitle='Choose who can view this content.'>
+                <Step title='5. Instruction Steps' subtitle='Break the work into steps the crew can check off.'>
+                    <View className='overflow-hidden rounded-xl border' style={{ borderColor: theme.colors.border }}>
+                        <View className='flex-row px-3 py-3' style={{ backgroundColor: theme.colors.backgroundTertiary }}>
+                            <Text className='w-6 text-xs font-bold uppercase' style={{ color: theme.colors.textPrimary }}>#</Text>
+                            <Text className='flex-1 text-xs font-bold uppercase' style={{ color: theme.colors.textPrimary }}>Task / Item</Text>
+                        </View>
+                        {steps.length ? steps.map((step, index) => (
+                            <View key={`${index}-${step.title}`} className={`flex-row items-center px-3 py-3 ${index === steps.length - 1 ? '' : 'border-b'}`} style={{ borderColor: theme.colors.border }}>
+                                <Text className='w-6 text-sm font-bold' style={{ color: theme.colors.textSecondary }}>{index + 1}</Text>
+                                <View className='flex-1'>
+                                    <Text className='text-sm font-bold' style={{ color: theme.colors.textPrimary }}>{step.title}</Text>
+                                    {step.note ? <Text className='mt-0.5 text-xs' style={{ color: theme.colors.textSecondary }}>{step.note}</Text> : null}
+                                </View>
+                                <RemoveButton onPress={() => setSteps((current) => current.filter((_, i) => i !== index))} />
+                            </View>
+                        )) : (
+                            <Text className='py-5 text-center text-sm' style={{ color: theme.colors.textMuted }}>No steps yet.</Text>
+                        )}
+                    </View>
+
+                    {addingStep ? (
+                        <AddStepForm onCancel={() => setAddingStep(false)} onSave={handleAddStep} />
+                    ) : (
+                        <TouchableOpacity className='mt-3 flex-row items-center self-start' onPress={() => setAddingStep(true)}>
+                            <AntDesign name='plus' size={14} color={theme.colors.primary} />
+                            <Text className='ml-1.5 text-sm font-semibold' style={{ color: theme.colors.primary }}>Add Step</Text>
+                        </TouchableOpacity>
+                    )}
+                </Step>
+
+                <Step title='6. Visibility' subtitle='Choose who can view this content.'>
                     {VISIBILITY_OPTIONS.map((option) => (
                         <RadioOption key={option.value} label={option.label} subtitle={option.subtitle} selected={visibility === option.value} onPress={() => setVisibility(option.value)} />
                     ))}

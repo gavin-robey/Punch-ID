@@ -32,6 +32,7 @@
     "expo-image-picker": "~56.0.25",
     "expo-splash-screen": "~56.0.15",
     "expo-status-bar": "~56.0.4",
+    "expo-video": "~56.1.4",
     "gluestack-ui": "^5.0.3",
     "lottie-react-native": "~7.3.4",
     "nativewind": "^5.0.0-preview.2",
