@@ -30,6 +30,7 @@ Monorepo: `client/` (Expo / React Native, TypeScript) and `server/`.
 - Shared components already in `client/components/`:
   - `JobSelect`: the job site dropdown. It's bound to the jobs store, so selecting a job updates `currentJob` app-wide. `allowAdd` adds a "+ Add New Job Site" option; the new-job modal and create logic live inside the component, so screens don't reimplement them.
   - `StatusBadge`: the status pill.
+  - `AuthForm` (`AuthLayout`, `AuthInput`, `AuthButton`, `AuthLink`): the shared look for the signed-out screens. That's the wordmark, the page title with a red underline, a single form card and footer links. `AuthInput` has a label, an icon, a password show/hide toggle, and turns red when `invalid`. New auth screens should use these rather than restyling inputs.
   - `AddStepForm`: the inline form for an instruction step (title plus optional details). On Add Punch Item, `onSave` only validates and keeps the step locally until the item is submitted. On Punch Item it calls `createInstruction` straight away. Return `true` to clear the form for the next step.
 - When matching a mockup, keep the existing layout and styling when wiring in real data. Show an empty-state message (`textMuted`, centered) when a list is empty instead of hiding the section.
 - Import with path aliases (`@/utils/...`, `@/components/...`), not long relative paths.

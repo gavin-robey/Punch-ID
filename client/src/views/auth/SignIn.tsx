@@ -1,27 +1,14 @@
-import Header from '../../../components/Header';
-import { showErrorToast } from '../../../components/ErrorToast';
-import { Input, InputField, InputSlot } from '../../../components/ui/input';
-import { Text } from '../../../components/ui/text';
 import { FC, useState } from 'react';
-import { KeyboardAvoidingView, TouchableOpacity, View, useColorScheme } from 'react-native';
-import { Icon, MailIcon, LockIcon } from "../../../components/ui/icon";
+import { Text, View } from 'react-native';
 import { NavigationProp, useNavigation } from '@react-navigation/native';
-import { AuthStackParamList } from '../../navigator/auth/AuthNavigator';
-import { signInSchema } from '../../validation/auth';
+import { AuthStackParamList } from '@/navigator/auth/AuthNavigator';
+import { signInSchema } from '@/validation/auth';
 import { yupValidate } from '@/utils/validator';
-import { useToast } from '../../../components/ui/toast';
-import { Spinner } from '../../../components/ui/spinner';
+import { theme } from '@/utils/theme';
 import useAuth from '@/hooks/useAuth';
-
-
-const styles = {
-    container: `flex-1 justify-center p-6 md:mx-auto md:w-full md:max-w-[520px] md:p-10 pt-15`,
-    input: `mb-3.5 min-h-0 rounded-lg border px-3.5 py-3 md:min-h-12`,
-    button: `items-center rounded-lg p-3.5 md:min-h-12 md:justify-center`,
-    buttonText: `font-semibold text-white`,
-    footer: `mt-auto flex-row justify-between p-2 md:mt-6 md:px-0`,
-    link: `text-blue-600`,
-};
+import { showErrorToast } from '@/components/ErrorToast';
+import { useToast } from '@/components/ui/toast';
+import { AuthButton, AuthInput, AuthLayout, AuthLink } from '@/components/AuthForm';
 
 const SignIn: FC = () => {
     const { navigate } = useNavigation<NavigationProp<AuthStackParamList>>();
@@ -32,12 +19,16 @@ const SignIn: FC = () => {
     const [emailInvalid, setEmailInvalid] = useState(false);
     const [passwordInvalid, setPasswordInvalid] = useState(false);
     const [loading, setLoading] = useState(false);
-    const colorScheme = useColorScheme();
-    const isDarkMode = colorScheme === 'dark';
     const canSignIn = Boolean(email.trim() && password.trim() && !loading);
     const { signIn } = useAuth();
 
+    const clearInvalid = () => {
+        setEmailInvalid(false);
+        setPasswordInvalid(false);
+    };
+
     const handleSubmit = async () => {
+        setLoading(true);
         const { values, error } = await yupValidate(signInSchema, { email, password,});
 
         if(error) {
@@ -48,55 +39,50 @@ const SignIn: FC = () => {
             return
         }
 
-        if(values) signIn(values, setEmailInvalid, setPasswordInvalid, showErrorToast, { toast, toastId, setToastId });
+        if(values) await signIn(values, setEmailInvalid, setPasswordInvalid, showErrorToast, { toast, toastId, setToastId });
+        setLoading(false);
     };
 
     return (
-        <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
-            <View className={`${styles.container} ${isDarkMode ? 'bg-gray-950' : 'bg-white'}`}>
-                <Header title='Login' subtitle='Please login using your email and password' isDarkMode={isDarkMode}/>
-
-                <View className='mt-auto'>
-                    <Input isInvalid={emailInvalid} >
-                        <InputSlot>
-                            <Icon as={MailIcon} className={`${isDarkMode ? 'text-gray-500' :  'text-black'}`} size='md'/>
-                        </InputSlot>
-                        <InputField autoCapitalize="none" className={`${isDarkMode ? ' text-white' :  'text-black'}`} keyboardType="email-address" placeholder="Email" value={email} onChangeText={(value) => {
-                            setEmail(value);
-                            setEmailInvalid(false);
-                            setPasswordInvalid(false);
-                        }} />
-                    </Input>
-                    <Input isInvalid={passwordInvalid}>
-                        <InputSlot>
-                            <Icon as={LockIcon} className={`${isDarkMode ? ' text-gray-500' :  'text-black'}`} size='md'/>
-                        </InputSlot>
-                        <InputField className={`${isDarkMode ? ' text-white' :  'text-black'}`} secureTextEntry placeholder="Password"  value={password} onChangeText={(value) => {
-                            setPassword(value);
-                            setEmailInvalid(false);
-                            setPasswordInvalid(false);
-                        }} />
-                    </Input>
-
-                    <TouchableOpacity
-                        className={`${styles.button} ${canSignIn ? 'bg-blue-600' : 'bg-gray-700'}`}
-                        onPress={handleSubmit}
-                        disabled={!canSignIn}
-                    >
-                        {loading ?  (<Spinner size="small" color="grey" />) : (<Text className={styles.buttonText}>Sign In</Text>)}
-                    </TouchableOpacity>
-                </View>
-
-                <View className={styles.footer}>
-                    <TouchableOpacity onPress={() => navigate("SignUp")}>
-                        <Text className={styles.link}>Sign Up</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => navigate("ForgetPassword")}>
-                        <Text className={styles.link}>Forgot password?</Text>
-                    </TouchableOpacity>
-                </View>
+        <AuthLayout
+            title='Sign In'
+            subtitle='Log in with your email and password to manage your punch lists.'
+            footer={
+                <>
+                    <Text className='text-sm' style={{ color: theme.colors.textSecondary }}>New to PUNCH ID?</Text>
+                    <AuthLink label='Create an account' onPress={() => navigate("SignUp")} />
+                </>
+            }
+        >
+            <AuthInput
+                label='Email'
+                icon='mail'
+                placeholder='you@company.com'
+                keyboardType='email-address'
+                value={email}
+                invalid={emailInvalid}
+                onChangeText={(value) => {
+                    setEmail(value);
+                    clearInvalid();
+                }}
+            />
+            <AuthInput
+                label='Password'
+                icon='lock'
+                placeholder='Your password'
+                secure
+                value={password}
+                invalid={passwordInvalid}
+                onChangeText={(value) => {
+                    setPassword(value);
+                    clearInvalid();
+                }}
+            />
+            <View className='-mt-1 mb-4 items-end'>
+                <AuthLink label='Forgot password?' onPress={() => navigate("ForgetPassword")} muted />
             </View>
-        </KeyboardAvoidingView>
+            <AuthButton label='Sign In' onPress={handleSubmit} disabled={!canSignIn} loading={loading} />
+        </AuthLayout>
     );
 };
 
